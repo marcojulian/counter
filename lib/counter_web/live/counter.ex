@@ -1,28 +1,20 @@
 defmodule CounterWeb.Counter do
   use CounterWeb, :live_view
 
-  @topic "live"
+  alias Phoenix.PubSub
+  alias Counter.Count
+
+  @topic Count.topic()
 
   def mount(_params, _session, socket) do
-    CounterWeb.Endpoint.subscribe(@topic)
-    {:ok, assign(socket, :val, 0)}
+    PubSub.subscribe(Counter.PubSub, @topic)
+    {:ok, assign(socket, val: Count.curr())}
   end
 
-  def handle_event("inc", _, socket) do
-    new_state = update(socket, :val, &(&1 + 1))
-    CounterWeb.Endpoint.broadcast_from(self(), @topic, "inc", new_state.assigns)
-    {:noreply, new_state}
-  end
+  def handle_event("inc", _, socket), do: {:noreply, assign(socket, :val, Count.incr())}
+  def handle_event("dec", _, socket), do: {:noreply, assign(socket, :val, Count.decr())}
 
-  def handle_event("dec", _, socket) do
-    new_state = update(socket, :val, &(&1 - 1))
-    CounterWeb.Endpoint.broadcast_from(self(), @topic, "dec", new_state.assigns)
-    {:noreply, new_state}
-  end
-
-  def handle_info(msg, socket) do
-    {:noreply, assign(socket, val: msg.payload.val)}
-  end
+  def handle_info({:count, count}, socket), do: {:noreply, assign(socket, val: count)}
 
   def render(assigns) do
     ~H"""
